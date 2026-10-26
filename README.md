@@ -1,10 +1,10 @@
-# 🐦 Floppy Bird - Deluxe Edition
+# 🐦 Flappy Bird - Deluxe Edition
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Play%20Now-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://samaed-samee.github.io/flappy-bird/)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge&logo=github)](https://github.com/samaed-samee/flappy-bird)
 [![Developer](https://img.shields.io/badge/Developer-Samee-orange?style=for-the-badge&logo=github)](https://github.com/samaed-samee/)
 
-A modern, responsive **Floppy Bird** game built with pure **HTML5 Canvas, Vanilla JavaScript, and CSS3**. Features organic aerodynamic flight physics, multi-tiered animated feathers, 5 unique selectable bird characters, and balanced, rewarding gameplay.
+A modern, responsive **Flappy Bird** game built with pure **HTML5 Canvas, Vanilla JavaScript, and CSS3**. Features organic aerodynamic flight physics, multi-tiered animated feathers, 5 unique selectable bird characters, and balanced, rewarding gameplay.
 
 🎮 **[Play the Live Game Here!](https://samaed-samee.github.io/flappy-bird/)**
 
@@ -23,7 +23,7 @@ A modern, responsive **Floppy Bird** game built with pure **HTML5 Canvas, Vanill
 
 ### 1. 🪶 5 Selectable Bird Characters
 Choose between 5 birds with distinct palettes, anatomy, and head ornaments:
-- 🟡 **Sunny (Classic Gold)**: The beloved, iconic yellow floppy bird.
+- 🟡 **Sunny (Classic Gold)**: The beloved, iconic yellow flappy bird.
 - 🔴 **Ruby (Crimson Fire)**: Phoenix-inspired bird with a fiery triple head crest.
 - ⚡ **Volt (Cyber Neon)**: Electric cyan cyber bird equipped with glowing futuristic visor goggles.
 - 🟢 **Jade (Forest Robin)**: Emerald-green robin sporting a cute sprout leaf crest.
@@ -60,7 +60,6 @@ Choose between 5 birds with distinct palettes, anatomy, and head ornaments:
 ```bash
 flappy-bird/
 ├── index.html            # Main game entry point (GitHub Pages)
-├── floppybird-game.html  # Standalone game file
 ├── style.css             # Glassmorphism UI, overlay states, and animations
 └── README.md             # Project documentation
 ```
@@ -77,7 +76,7 @@ flappy-bird/
    ```bash
    cd flappy-bird
    ```
-3. Open `index.html` or `floppybird-game.html` in any web browser.
+3. Open `index.html` in any web browser.
 
 ---
 
