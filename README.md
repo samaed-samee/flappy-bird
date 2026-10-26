@@ -1,41 +1,56 @@
 # 🐦 Floppy Bird - Deluxe Edition
 
-A lightweight, modern, and mobile-responsive **Floppy Bird** game built using pure **HTML5 Canvas, Vanilla JavaScript, and CSS3**. Designed with organic flight aerodynamics, multi-tiered feather animations, 5 unique selectable bird skins, and balanced, addictive gameplay.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Play%20Now-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://samaed-samee.github.io/flappy-bird/)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge&logo=github)](https://github.com/samaed-samee/flappy-bird)
+[![Developer](https://img.shields.io/badge/Developer-Samee-orange?style=for-the-badge&logo=github)](https://github.com/samaed-samee/)
+
+A modern, responsive **Floppy Bird** game built with pure **HTML5 Canvas, Vanilla JavaScript, and CSS3**. Features organic aerodynamic flight physics, multi-tiered animated feathers, 5 unique selectable bird characters, and balanced, rewarding gameplay.
+
+🎮 **[Play the Live Game Here!](https://samaed-samee.github.io/flappy-bird/)**
+
+---
+
+## 👨‍💻 Developer Information
+
+- **Developer:** [Samee](https://github.com/samaed-samee/)
+- **GitHub Profile:** [https://github.com/samaed-samee/](https://github.com/samaed-samee/)
+- **Repository:** [https://github.com/samaed-samee/flappy-bird.git](https://github.com/samaed-samee/flappy-bird.git)
+- **Live Website:** [https://samaed-samee.github.io/flappy-bird/](https://samaed-samee.github.io/flappy-bird/)
 
 ---
 
 ## ✨ Features
 
-- 🎮 **5 Unique Selectable Birds**:
-  - 🟡 **Sunny (Classic Gold)**: The iconic, timeless floppy bird.
-  - 🔴 **Ruby (Crimson Fire)**: Phoenix-inspired bird with a fiery triple head crest.
-  - ⚡ **Volt (Cyber Neon)**: Futuristic electric cyan bird equipped with glowing cyber-visor goggles.
-  - 🟢 **Jade (Forest Robin)**: Emerald-hued robin with a sprouting leaf crest.
-  - 🟣 **Phantom (Midnight Raven)**: Sleek violet/charcoal raven with glowing mystic eyes and plume feathers.
-- 🪶 **Realistic Feather Anatomy & Flying Physics**:
-  - **Multi-tiered Wings**: Primary flight feathers with aerodynamic quills + covert shoulder feathers.
-  - **Animated Tail Feathers (Retrices)**: Overlapping 3-layer tail feathers that dynamically flutter based on velocity and tilt.
-  - **Aerodynamic Pitch & Inertia**: Natural tilt upward (`-24°`) on flaps followed by a smooth nose-down dive curve (`+70°`).
-  - **Body Squash & Stretch**: Subtle organic impulse animation on every flap.
-- 🎯 **Balanced & Fair Gameplay**:
-  - Decoupled forgiving collision hitbox (`11px` inner radius) preventing frustrating pixel clips.
-  - Generous pipe gap (`148px`) and relaxed obstacle pacing for rewarding gameplay.
-- 📱 **Cross-Platform & Mobile Friendly**:
-  - Full touch screen support on mobile devices.
-  - Full keyboard (`Space`) and mouse click support on desktop.
-- 💾 **Local Persistence**:
-  - High score and chosen bird skin persist across sessions via `localStorage`.
-- ⚡ **Zero External Dependencies**:
-  - Pure HTML5 Canvas, vanilla JavaScript, and separated modular CSS.
+### 1. 🪶 5 Selectable Bird Characters
+Choose between 5 birds with distinct palettes, anatomy, and head ornaments:
+- 🟡 **Sunny (Classic Gold)**: The beloved, iconic yellow floppy bird.
+- 🔴 **Ruby (Crimson Fire)**: Phoenix-inspired bird with a fiery triple head crest.
+- ⚡ **Volt (Cyber Neon)**: Electric cyan cyber bird equipped with glowing futuristic visor goggles.
+- 🟢 **Jade (Forest Robin)**: Emerald-green robin sporting a cute sprout leaf crest.
+- 🟣 **Phantom (Midnight Raven)**: Mystical charcoal/violet raven with glowing golden eyes and plume feathers.
+
+### 2. 🦅 Realistic Flight Physics & Aerodynamics
+- **Multi-tiered Wings**: Primary flight feathers with aerodynamic quill shafts and scalloped shoulder coverts.
+- **Animated Tail Feathers (Retrices)**: 3-layer overlapping tail feathers that flutter dynamically with flight angle and velocity.
+- **Natural Pitch Inertia**: Smooth upward lift tilt (`-24°`) transitioning into an organic nose-down dive curve (`+70°`).
+- **Squash & Stretch**: Dynamic body deformation on each flap impulse.
+- **Fair Hitbox**: Generous `11px` inner collision core so grazing pipe edges doesn't cause cheap deaths.
+
+### 3. 📱 Mobile-Friendly & Cross-Platform
+- Fully responsive on mobile phones, tablets, and desktop displays.
+- Supports both full-screen touch gestures and keyboard/mouse clicks.
+
+### 4. 💾 Persistent High Scores & Selection
+- Saves your high score and selected bird character locally using `localStorage`.
 
 ---
 
-## 🕹️ Controls
+## 🕹️ How to Play
 
-| Action | Desktop | Mobile / Touch |
+| Action | Desktop Controls | Mobile / Touch Controls |
 | :--- | :--- | :--- |
-| **Jump / Flap** | `Spacebar` or `Left Mouse Click` | `Tap Screen` |
-| **Start / Restart** | `Click Button`, `Click Screen`, or `Spacebar` | `Tap Button` or `Tap Screen` |
+| **Jump / Flap** | `Spacebar` or `Click Screen` | `Tap Screen` |
+| **Start / Replay** | `Click Button` or `Spacebar` | `Tap Button` or `Tap Screen` |
 | **Select Bird** | `Click Bird Card` | `Tap Bird Card` |
 
 ---
@@ -43,7 +58,31 @@ A lightweight, modern, and mobile-responsive **Floppy Bird** game built using pu
 ## 📁 Project Structure
 
 ```bash
-floppy-bird-game/
-├── floppybird-game.html  # Main game loop, canvas rendering, physics, and skins
-├── style.css             # Responsive styling, overlays, and bird picker cards
-└── README.md             # Documentation
+flappy-bird/
+├── index.html            # Main game entry point (GitHub Pages)
+├── floppybird-game.html  # Standalone game file
+├── style.css             # Glassmorphism UI, overlay states, and animations
+└── README.md             # Project documentation
+```
+
+---
+
+## 🚀 Running Locally
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/samaed-samee/flappy-bird.git
+   ```
+2. Navigate into the folder:
+   ```bash
+   cd flappy-bird
+   ```
+3. Open `index.html` or `floppybird-game.html` in any web browser.
+
+---
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+Developed with ❤️ by **[Samee](https://github.com/samaed-samee/)**.
