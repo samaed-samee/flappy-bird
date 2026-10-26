@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Bird - Mobile Friendly</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Live Score -->
+        <div id="ui-score">0</div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay">
+            <h1>FLOPPY BIRD</h1>
+            
+            <!-- Bird Selection -->
+            <div class="bird-selector-section">
+                <div class="bird-selector-header">
+                    <span class="bird-selector-label">Choose Bird:</span>
+                    <span id="start-bird-name" class="bird-active-name">Sunny</span>
+                </div>
+                <div class="bird-cards-container" id="start-bird-picker"></div>
+            </div>
+
+            <p class="instruction-text">Tap / Click or Press Space to Jump</p>
+            <button class="btn" onclick="startGame()">START GAME</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="overlay">
+            <h1 style="color: #ff3333; font-size: 34px; margin-bottom: 10px;">GAME OVER</h1>
+            <div class="score-board">
+                <div><span>SCORE:</span> <span id="final-score">0</span></div>
+                <div><span>BEST:</span> <span id="high-score">0</span></div>
+            </div>
+
+            <!-- Bird Selection on Game Over -->
+            <div class="bird-selector-section" style="margin-top: 12px;">
+                <div class="bird-selector-header">
+                    <span class="bird-selector-label">Switch Bird:</span>
+                    <span id="gameover-bird-name" class="bird-active-name">Sunny</span>
+                </div>
+                <div class="bird-cards-container" id="gameover-bird-picker"></div>
+            </div>
+
+            <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+        </div>
+
+        <!-- Canvas -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+<script>
+    const gameContainer = document.getElementById('game-container');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const uiScore = document.getElementById('ui-score');
+    const startScreen = document.getElementById('start-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+
+    // 5 Selectable Bird Skins (Original Sunny + 4 Extra Unique Birds)
+    const BIRD_SKINS = [
+        {
+            id: 'sunny',
+            name: 'Sunny',
+            type: 'Classic Gold',
+            bodyColors: ['#fffb96', '#f7d313', '#e0a300'],
+            wingColors: ['#fff880', '#f1bd00'],
+            tailColors: ['#f4ca16', '#cf9400'],
+            beakColors: ['#ff7a33', '#d63600'],
+            blushColor: 'rgba(249, 83, 0, 0.35)',
+            outlineColor: '#543847',
+            featherAccent: '#ffe66d',
+            eyeColor: '#ffffff',
+            pupilColor: '#000000',
+            feature: 'classic'
+        },
+        {
+            id: 'ruby',
+            name: 'Ruby',
+            type: 'Crimson Fire',
+            bodyColors: ['#ff8a8a', '#e62222', '#8f0b0b'],
+            wingColors: ['#ffd166', '#f77f00'],
+            tailColors: ['#ff9900', '#c83200'],
+            beakColors: ['#ffe066', '#f48c06'],
+            blushColor: 'rgba(255, 230, 0, 0.4)',
+            outlineColor: '#420505',
+            featherAccent: '#ffb38a',
+            eyeColor: '#ffffff',
+            pupilColor: '#2b0000',
+            feature: 'crest' // Fiery crest feathers
+        },
+        {
+            id: 'volt',
+            name: 'Volt',
+            type: 'Cyber Neon',
+            bodyColors: ['#80ffea', '#00d2ff', '#005b82'],
+            wingColors: ['#f72585', '#7209b7'],
+            tailColors: ['#00f5d4', '#007b99'],
+            beakColors: ['#ff007f', '#99004d'],
+            blushColor: 'rgba(0, 245, 212, 0.5)',
+            outlineColor: '#081728',
+            featherAccent: '#a0f9ff',
+            eyeColor: '#ffffff',
+            pupilColor: '#00ffff',
+            feature: 'cyber' // Cyber visor
+        },
+        {
+            id: 'jade',
+            name: 'Jade',
+            type: 'Forest Robin',
+            bodyColors: ['#d8f3dc', '#52b788', '#1b4332'],
+            wingColors: ['#95d5b2', '#2d6a4f'],
+            tailColors: ['#74c69d', '#1e4b35'],
+            beakColors: ['#ffb703', '#fb8500'],
+            blushColor: 'rgba(255, 183, 3, 0.4)',
+            outlineColor: '#122e1c',
+            featherAccent: '#b7efc5',
+            eyeColor: '#ffffff',
+            pupilColor: '#081c15',
+            feature: 'leaf' // Sprout leaf on head
+        },
+        {
+            id: 'phantom',
+            name: 'Phantom',
+            type: 'Midnight Raven',
+            bodyColors: ['#8f82b8', '#3d325c', '#151024'],
+            wingColors: ['#c77dff', '#5a189a'],
+            tailColors: ['#9d4edd', '#3c096c'],
+            beakColors: ['#ffd166', '#e09f3e'],
+            blushColor: 'rgba(199, 125, 255, 0.35)',
+            outlineColor: '#0d0818',
+            featherAccent: '#b8a9db',
+            eyeColor: '#ffeb99',
+            pupilColor: '#240046',
+            feature: 'raven' // Mystic head plume
+        }
+    ];
+
+    let selectedBirdIndex = parseInt(localStorage.getItem('floppySelectedBird'), 10) || 0;
+    if (selectedBirdIndex < 0 || selectedBirdIndex >= BIRD_SKINS.length) {
+        selectedBirdIndex = 0;
+    }
+
+    // Helper: Draw Bird Art with realistic multi-layer feathers and squash/stretch
+    function drawBirdArt(c, x, y, radius, rotation, wingAngle, skin, scaleX = 1, scaleY = 1) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(rotation);
+        c.scale(scaleX, scaleY);
+
+        const outline = skin.outlineColor;
+
+        // 1. Shadow under bird
+        c.fillStyle = 'rgba(0,0,0,0.15)';
+        c.beginPath();
+        c.arc(radius * 0.12, radius * 0.25, radius, 0, Math.PI * 2);
+        c.fill();
+
+        // 2. Multi-layered Animated Tail Feathers (Retrices)
+        c.save();
+        const tailFlutter = Math.sin(wingAngle * 1.5) * 0.15;
+        c.translate(-radius * 0.85, radius * 0.05);
+        c.rotate(tailFlutter);
+
+        const tailColors = skin.tailColors || skin.wingColors;
+        for (let t = 0; t < 3; t++) {
+            const tAngle = -0.3 + t * 0.28;
+            const tLen = radius * (0.65 - Math.abs(t - 1) * 0.12);
+            c.save();
+            c.rotate(tAngle);
+
+            let tGrad = c.createLinearGradient(-tLen, 0, 0, 0);
+            tGrad.addColorStop(0, tailColors[1]);
+            tGrad.addColorStop(1, tailColors[0]);
+            c.fillStyle = tGrad;
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.2, radius * 0.12);
+
+            c.beginPath();
+            c.moveTo(0, -radius * 0.12);
+            c.quadraticCurveTo(-tLen * 0.6, -radius * 0.22, -tLen, 0);
+            c.quadraticCurveTo(-tLen * 0.6, radius * 0.22, 0, radius * 0.12);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Tail feather quill
+            c.beginPath();
+            c.strokeStyle = outline;
+            c.lineWidth = 0.9;
+            c.moveTo(0, 0);
+            c.lineTo(-tLen * 0.8, 0);
+            c.stroke();
+
+            c.restore();
+        }
+        c.restore();
+
+        // 3. Unique Special Head Features
+        if (skin.feature === 'crest') {
+            // Triple fire crest feathers
+            c.fillStyle = '#ff3300';
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.5, radius * 0.16);
+            c.beginPath();
+            c.moveTo(-radius * 0.4, -radius * 0.7);
+            c.quadraticCurveTo(-radius * 0.8, -radius * 1.5, -radius * 0.3, -radius * 1.3);
+            c.quadraticCurveTo(0, -radius * 1.7, radius * 0.3, -radius * 1.2);
+            c.quadraticCurveTo(radius * 0.2, -radius * 0.9, 0, -radius * 0.7);
+            c.closePath();
+            c.fill();
+            c.stroke();
+        } else if (skin.feature === 'leaf') {
+            // Sprout leaves
+            c.fillStyle = '#4ade80';
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.5, radius * 0.14);
+            c.beginPath();
+            c.moveTo(0, -radius * 0.8);
+            c.quadraticCurveTo(-radius * 0.6, -radius * 1.5, -radius * 0.1, -radius * 1.6);
+            c.quadraticCurveTo(0, -radius * 1.1, 0, -radius * 0.8);
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(0, -radius * 0.8);
+            c.quadraticCurveTo(radius * 0.5, -radius * 1.4, radius * 0.1, -radius * 1.5);
+            c.quadraticCurveTo(0, -radius * 1.1, 0, -radius * 0.8);
+            c.fill();
+            c.stroke();
+        } else if (skin.feature === 'raven') {
+            // Dark mystical plume
+            c.fillStyle = '#5a189a';
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.5, radius * 0.14);
+            c.beginPath();
+            c.moveTo(-radius * 0.2, -radius * 0.8);
+            c.lineTo(-radius * 0.9, -radius * 1.3);
+            c.lineTo(-radius * 0.4, -radius * 0.9);
+            c.closePath();
+            c.fill();
+            c.stroke();
+        }
+
+        // 4. Main Body Gradient
+        let bodyGrad = c.createRadialGradient(-radius * 0.2, -radius * 0.2, radius * 0.1, 0, 0, radius);
+        bodyGrad.addColorStop(0, skin.bodyColors[0]);
+        bodyGrad.addColorStop(0.45, skin.bodyColors[1]);
+        bodyGrad.addColorStop(1, skin.bodyColors[2]);
+
+        c.fillStyle = bodyGrad;
+        c.strokeStyle = outline;
+        c.lineWidth = Math.max(2, radius * 0.22);
+        c.beginPath();
+        c.arc(0, 0, radius, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        // 5. Plumage & Breast Feather Texture Accents
+        c.strokeStyle = skin.featherAccent || 'rgba(255,255,255,0.3)';
+        c.lineWidth = Math.max(1, radius * 0.08);
+        c.beginPath();
+        c.arc(-radius * 0.1, radius * 0.35, radius * 0.32, 0.2, Math.PI * 0.7);
+        c.stroke();
+        c.beginPath();
+        c.arc(radius * 0.25, radius * 0.4, radius * 0.26, 0.4, Math.PI * 0.8);
+        c.stroke();
+
+        // 6. Cheek blush
+        c.fillStyle = skin.blushColor;
+        c.beginPath();
+        c.arc(radius * 0.08, radius * 0.25, radius * 0.26, 0, Math.PI * 2);
+        c.fill();
+
+        // 7. Eyes & Eyewear
+        if (skin.feature === 'cyber') {
+            // Futuristic Visor Glasses
+            c.fillStyle = '#00f5d4';
+            c.strokeStyle = '#ffffff';
+            c.lineWidth = Math.max(1.5, radius * 0.12);
+            c.beginPath();
+            if (c.roundRect) {
+                c.roundRect(0, -radius * 0.55, radius * 0.95, radius * 0.55, 3);
+            } else {
+                c.rect(0, -radius * 0.55, radius * 0.95, radius * 0.55);
+            }
+            c.fill();
+            c.stroke();
+
+            // Visor glow & shine line
+            c.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            c.fillRect(radius * 0.12, -radius * 0.45, radius * 0.7, Math.max(1.5, radius * 0.12));
+        } else {
+            // Classic Eye Sclera
+            c.fillStyle = skin.eyeColor;
+            c.beginPath();
+            c.arc(radius * 0.38, -radius * 0.25, radius * 0.38, 0, Math.PI * 2);
+            c.fill();
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.5, radius * 0.2);
+            c.stroke();
+
+            // Pupil
+            c.fillStyle = skin.pupilColor;
+            c.beginPath();
+            c.arc(radius * 0.5, -radius * 0.25, radius * 0.16, 0, Math.PI * 2);
+            c.fill();
+
+            // Eye sparkle
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.arc(radius * 0.44, -radius * 0.32, radius * 0.06, 0, Math.PI * 2);
+            c.fill();
+        }
+
+        // 8. Beak (Gradient)
+        let beakGrad = c.createLinearGradient(radius * 0.75, 0, radius * 1.5, radius * 0.2);
+        beakGrad.addColorStop(0, skin.beakColors[0]);
+        beakGrad.addColorStop(1, skin.beakColors[1]);
+        c.fillStyle = beakGrad;
+        c.strokeStyle = outline;
+        c.lineWidth = Math.max(1.5, radius * 0.19);
+        c.beginPath();
+        c.moveTo(radius * 0.75, -radius * 0.13);
+        c.lineTo(radius * 1.5, radius * 0.13);
+        c.lineTo(radius * 0.75, radius * 0.38);
+        c.closePath();
+        c.fill();
+        c.stroke();
+
+        // 9. Multi-Tiered Wing with Individual Flight Feathers & Aerodynamic Flex
+        c.save();
+        const flapOffset = Math.sin(wingAngle) * (radius * 0.4);
+        const wingFlex = Math.cos(wingAngle) * 0.18;
+        c.translate(-radius * 0.25, flapOffset);
+        c.rotate(-Math.PI / 12 + wingFlex);
+
+        // 9A. Primary Flight Feathers (Layer 1 - Longest outer feathers)
+        const primaryFeathers = 3;
+        for (let i = 0; i < primaryFeathers; i++) {
+            c.save();
+            const fAngle = -0.35 + i * 0.24 + flapOffset * 0.02;
+            c.rotate(fAngle);
+
+            const fLen = radius * (0.85 - i * 0.08);
+            const fWidth = radius * 0.35;
+
+            let featherGrad = c.createLinearGradient(-fLen, 0, 0, 0);
+            featherGrad.addColorStop(0, skin.wingColors[0]);
+            featherGrad.addColorStop(1, skin.wingColors[1]);
+
+            c.fillStyle = featherGrad;
+            c.strokeStyle = outline;
+            c.lineWidth = Math.max(1.2, radius * 0.13);
+
+            c.beginPath();
+            c.moveTo(0, -fWidth * 0.4);
+            c.quadraticCurveTo(-fLen * 0.6, -fWidth * 0.6, -fLen, 0);
+            c.quadraticCurveTo(-fLen * 0.6, fWidth * 0.6, 0, fWidth * 0.4);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Feather barb / shaft line
+            c.beginPath();
+            c.strokeStyle = outline;
+            c.lineWidth = 0.9;
+            c.moveTo(0, 0);
+            c.lineTo(-fLen * 0.75, 0);
+            c.stroke();
+
+            c.restore();
+        }
+
+        // 9B. Secondary Wing Covert Cap (Layer 2 - Shoulder feather coverts)
+        let covertGrad = c.createRadialGradient(-radius * 0.1, 0, 1, 0, 0, radius * 0.45);
+        covertGrad.addColorStop(0, skin.wingColors[0]);
+        covertGrad.addColorStop(1, skin.wingColors[1]);
+
+        c.fillStyle = covertGrad;
+        c.strokeStyle = outline;
+        c.lineWidth = Math.max(1.3, radius * 0.15);
+        c.beginPath();
+        c.ellipse(-radius * 0.15, 0, radius * 0.42, radius * 0.28, -Math.PI / 8, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        // Wing covert feather scallops
+        c.strokeStyle = skin.featherAccent || 'rgba(255,255,255,0.4)';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.arc(-radius * 0.22, 0, radius * 0.16, -Math.PI * 0.5, Math.PI * 0.5);
+        c.stroke();
+
+        c.restore(); // End Wing
+
+        c.restore(); // End Bird
+    }
+
+    // Bird Selection UI Management
+    function selectBird(index) {
+        selectedBirdIndex = index;
+        localStorage.setItem('floppySelectedBird', selectedBirdIndex);
+
+        if (bird) {
+            bird.skinIndex = selectedBirdIndex;
+        }
+
+        const skinName = BIRD_SKINS[selectedBirdIndex].name;
+        const startName = document.getElementById('start-bird-name');
+        const goName = document.getElementById('gameover-bird-name');
+        if (startName) startName.textContent = skinName;
+        if (goName) goName.textContent = skinName;
+
+        document.querySelectorAll('.bird-card').forEach(card => {
+            const cardIdx = parseInt(card.dataset.index, 10);
+            if (cardIdx === selectedBirdIndex) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    }
+
+    function initBirdPickers() {
+        const containers = [
+            document.getElementById('start-bird-picker'),
+            document.getElementById('gameover-bird-picker')
+        ];
+
+        containers.forEach(container => {
+            if (!container) return;
+            container.innerHTML = '';
+            BIRD_SKINS.forEach((skin, index) => {
+                const card = document.createElement('div');
+                card.className = 'bird-card' + (index === selectedBirdIndex ? ' active' : '');
+                card.dataset.index = index;
+                card.title = skin.name + ' (' + skin.type + ')';
+
+                const previewCanvas = document.createElement('canvas');
+                previewCanvas.width = 44;
+                previewCanvas.height = 44;
+                previewCanvas.className = 'bird-preview-canvas';
+
+                const pCtx = previewCanvas.getContext('2d');
+                drawBirdArt(pCtx, 21, 22, 11, 0, 0, skin, 1, 1);
+
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'bird-card-name';
+                nameLabel.textContent = skin.name;
+
+                card.appendChild(previewCanvas);
+                card.appendChild(nameLabel);
+
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectBird(index);
+                });
+                card.addEventListener('touchstart', (e) => {
+                    e.stopPropagation();
+                }, { passive: true });
+
+                container.appendChild(card);
+            });
+        });
+
+        const skinName = BIRD_SKINS[selectedBirdIndex].name;
+        const startName = document.getElementById('start-bird-name');
+        const goName = document.getElementById('gameover-bird-name');
+        if (startName) startName.textContent = skinName;
+        if (goName) goName.textContent = skinName;
+    }
+
+    // Game States
+    let state = 'START'; // START, PLAYING, GAMEOVER
+    let gameOverTime = 0;
+
+    // Set responsive canvas resolution
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Rebalanced Physics & Aerodynamic Constants
+    // Tuned for natural, responsive, and enjoyable gameplay
+    const GRAVITY = 0.25;         // Smooth, buoyant gravity (was 0.35)
+    const JUMP = -5.5;            // Floatier, responsive lift impulse (was -6.5)
+    const PIPE_SPEED = 2.0;       // Steady horizontal flow
+    const PIPE_SPAWN_RATE = 115;  // Comfortable, rhythmic pipe spawn interval (was 100)
+    const PIPE_GAP = 148;         // Generous clearance for smooth flight (was 135)
+
+    // Game Variables
+    let bird;
+    let pipes = [];
+    let clouds = [];
+    let hills = [];
+    let frameCount = 0;
+    let score = 0;
+    let highScore = localStorage.getItem('floppyHighScore') || 0;
+
+    // Realistic Bird Flight Definition
+    class Bird {
+        constructor() {
+            this.x = canvas.width * 0.25;
+            this.y = canvas.height / 2;
+            this.vy = 0;
+            this.radius = 16;       // Visual rendering radius
+            this.hitRadius = 11;    // Forgiving inner collision hitbox (70% of radius)
+            this.rotation = 0;
+            this.targetRotation = 0;
+            this.wingCycle = 0;
+            this.scaleX = 1.0;
+            this.scaleY = 1.0;
+            this.skinIndex = selectedBirdIndex;
+        }
+
+        update() {
+            // Apply gentle gravity with aerodynamic damping
+            this.vy += GRAVITY;
+            this.y += this.vy;
+
+            // Terminal falling velocity
+            if (this.vy > 7.0) this.vy = 7.0;
+
+            // Realistic inertia-based rotation
+            // When rising or just flapped: tilt up (-24 deg / -0.42 rad)
+            // When falling: gradually rotate into nose-down dive (up to 70 deg / 1.22 rad)
+            if (this.vy < 0) {
+                this.targetRotation = -0.42;
+            } else if (this.vy > 1.2) {
+                this.targetRotation = Math.min(1.22, -0.42 + (this.vy - 1.2) * 0.28);
+            }
+            // Smooth rotation interpolation
+            this.rotation += (this.targetRotation - this.rotation) * 0.12;
+
+            // Dynamic wing flapping cycle based on flight state
+            this.wingCycle += (this.vy < 0) ? 0.32 : 0.08;
+
+            // Return squash and stretch back to neutral smoothly
+            this.scaleX += (1.0 - this.scaleX) * 0.1;
+            this.scaleY += (1.0 - this.scaleY) * 0.1;
+
+            // Ground & Ceiling collision using hitRadius
+            if (this.y + this.hitRadius >= canvas.height - 60) {
+                this.y = canvas.height - 60 - this.hitRadius;
+                gameOver();
+            }
+            if (this.y - this.hitRadius < 0) {
+                this.y = this.hitRadius;
+                this.vy = 0;
+            }
+        }
+
+        jump() {
+            this.vy = JUMP;
+            this.targetRotation = -0.42;
+            
+            // Aerodynamic squash & stretch on flap
+            this.scaleX = 1.08;
+            this.scaleY = 0.92;
+        }
+
+        draw() {
+            const skin = BIRD_SKINS[this.skinIndex] || BIRD_SKINS[0];
+            drawBirdArt(ctx, this.x, this.y, this.radius, this.rotation, this.wingCycle, skin, this.scaleX, this.scaleY);
+        }
+    }
+
+    // Pipe Object Definition with Forgiving Hitbox Detection
+    class Pipe {
+        constructor() {
+            this.x = canvas.width;
+            this.width = 60;
+            // Ensure gap is in playable range
+            const minHeight = 60;
+            const maxHeight = canvas.height - 60 - PIPE_GAP - minHeight;
+            this.topHeight = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
+            this.bottomY = this.topHeight + PIPE_GAP;
+            this.passed = false;
+        }
+
+        update() {
+            this.x -= PIPE_SPEED;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.strokeStyle = '#543847';
+            ctx.lineWidth = 3.5;
+
+            const px = Math.round(this.x);
+
+            // Draw Top Pipe
+            this.drawSinglePipe(px, 0, this.width, this.topHeight, true);
+
+            // Draw Bottom Pipe
+            const bottomHeight = canvas.height - 60 - this.bottomY;
+            this.drawSinglePipe(px, this.bottomY, this.width, bottomHeight, false);
+            ctx.restore();
+        }
+
+        drawSinglePipe(x, y, width, height, isTop) {
+            // Horizontal gradient for pipe body
+            let grad = ctx.createLinearGradient(x, 0, x + width, 0);
+            grad.addColorStop(0, '#9de650');
+            grad.addColorStop(0.15, '#73c73a');
+            grad.addColorStop(0.7, '#5ca82b');
+            grad.addColorStop(1.0, '#3b6e1a');
+
+            // Draw main body
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, width, height);
+            ctx.strokeRect(x, isTop ? -5 : y, width, isTop ? height + 5 : height + 5);
+
+            // Draw vertical highlight line
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(x + 5, y, 4, height);
+
+            // Draw Pipe Lip
+            const lipHeight = 24;
+            const lipY = isTop ? y + height - lipHeight : y;
+            const lipX = x - 4;
+            const lipWidth = width + 8;
+
+            let lipGrad = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
+            lipGrad.addColorStop(0, '#b5f56c');
+            lipGrad.addColorStop(0.15, '#73c73a');
+            lipGrad.addColorStop(0.7, '#5ca82b');
+            lipGrad.addColorStop(1.0, '#2d5414');
+
+            ctx.fillStyle = lipGrad;
+            ctx.fillRect(lipX, lipY, lipWidth, lipHeight);
+            ctx.strokeRect(lipX, lipY, lipWidth, lipHeight);
+
+            // Lip highlight line
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.fillRect(lipX + 7, lipY + 2, 4, lipHeight - 4);
+        }
+
+        collide(bird) {
+            // Forgiving Hitbox: uses bird.hitRadius (11px) instead of full 16px visual circle
+            const hr = bird.hitRadius;
+            if (bird.x + hr > this.x && bird.x - hr < this.x + this.width) {
+                if (bird.y - hr < this.topHeight || bird.y + hr > this.bottomY) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    // Background Cloud Decoration
+    class Cloud {
+        constructor() {
+            this.x = canvas.width + Math.random() * 150;
+            this.y = 40 + Math.random() * (canvas.height / 3);
+            this.speed = 0.15 + Math.random() * 0.25;
+            this.size = 25 + Math.random() * 20;
+        }
+        update() {
+            this.x -= this.speed;
+        }
+        draw() {
+            ctx.save();
+            ctx.fillStyle = 'rgba(220, 235, 245, 0.9)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y + 4, this.size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.size * 0.6, this.y + 4 - this.size * 0.1, this.size * 0.8, 0, Math.PI * 2);
+            ctx.arc(this.x - this.size * 0.6, this.y + 4 - this.size * 0.05, this.size * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.arc(this.x + this.size * 0.6, this.y - this.size * 0.1, this.size * 0.8, 0, Math.PI * 2);
+            ctx.arc(this.x - this.size * 0.6, this.y - this.size * 0.05, this.size * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // Initialize/Reset Game variables
+    function init() {
+        bird = new Bird();
+        bird.skinIndex = selectedBirdIndex;
+        pipes = [];
+        clouds = [];
+        frameCount = 0;
+        score = 0;
+        uiScore.textContent = score;
+
+        // Spawn starting clouds
+        for (let i = 0; i < 4; i++) {
+            let c = new Cloud();
+            c.x = Math.random() * canvas.width;
+            clouds.push(c);
+        }
+
+        // Spawn background hills for parallax depth
+        hills = [
+            { x: 0, width: 220, height: 70, speed: 0.15, color: '#addc9e' },
+            { x: 140, width: 280, height: 100, speed: 0.15, color: '#99d288' },
+            { x: 320, width: 200, height: 60, speed: 0.15, color: '#addc9e' },
+            { x: 80, width: 250, height: 85, speed: 0.25, color: '#82c56f' },
+            { x: 260, width: 230, height: 75, speed: 0.25, color: '#82c56f' }
+        ];
+    }
+
+    function startGame() {
+        init();
+        state = 'PLAYING';
+        startScreen.style.display = 'none';
+        gameoverScreen.style.display = 'none';
+        uiScore.style.display = 'block';
+    }
+
+    function gameOver() {
+        state = 'GAMEOVER';
+        gameOverTime = Date.now();
+        uiScore.style.display = 'none';
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('floppyHighScore', highScore);
+        }
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('high-score').textContent = highScore;
+        gameoverScreen.style.display = 'flex';
+    }
+
+    // Controller Input Handler
+    function handleAction(e) {
+        if (e.target && e.target.closest && e.target.closest('.bird-selector-section')) {
+            return;
+        }
+        if (e.target && e.target.closest && e.target.closest('.btn')) {
+            return;
+        }
+        if (e.cancelable) e.preventDefault();
+
+        if (state === 'PLAYING') {
+            bird.jump();
+        } else if (state === 'START') {
+            startGame();
+        } else if (state === 'GAMEOVER') {
+            if (Date.now() - gameOverTime > 350) {
+                startGame();
+            }
+        }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.key === ' ') {
+            if (state === 'PLAYING') {
+                bird.jump();
+            } else if (state === 'START') {
+                startGame();
+            } else if (state === 'GAMEOVER') {
+                if (Date.now() - gameOverTime > 350) {
+                    startGame();
+                }
+            }
+        }
+    });
+
+    gameContainer.addEventListener('touchstart', handleAction, { passive: false });
+    gameContainer.addEventListener('mousedown', handleAction);
+
+    // Draw Static Game Ground
+    let groundOffset = 0;
+
+    function drawGround() {
+        if (state === 'PLAYING') {
+            groundOffset = (groundOffset - PIPE_SPEED) % 24;
+        }
+
+        const groundY = canvas.height - 60;
+        
+        // 1. Dirt Base
+        ctx.fillStyle = '#ded798';
+        ctx.fillRect(0, groundY, canvas.width, 60);
+
+        // Diagonal stripes on dirt
+        ctx.strokeStyle = '#d2c880';
+        ctx.lineWidth = 4;
+        ctx.save();
+        ctx.beginPath();
+        for (let x = groundOffset - 24; x < canvas.width + 24; x += 16) {
+            ctx.moveTo(x, groundY + 12);
+            ctx.lineTo(x - 12, canvas.height);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // Ground top border line
+        ctx.strokeStyle = '#543847';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        ctx.lineTo(canvas.width, groundY);
+        ctx.stroke();
+
+        // 2. Grass Top Strip
+        ctx.fillStyle = '#54b030';
+        ctx.fillRect(0, groundY, canvas.width, 12);
+
+        // Grass texture triangles
+        ctx.fillStyle = '#3e8a20';
+        ctx.beginPath();
+        for (let x = groundOffset - 24; x < canvas.width + 24; x += 12) {
+            ctx.moveTo(x, groundY + 12);
+            ctx.lineTo(x + 6, groundY + 18);
+            ctx.lineTo(x + 12, groundY + 12);
+        }
+        ctx.fill();
+
+        // Grass bottom border line
+        ctx.strokeStyle = '#543847';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY + 12);
+        ctx.lineTo(canvas.width, groundY + 12);
+        ctx.stroke();
+    }
+
+    // Main Game Loop
+    function loop() {
+        // Clear Sky Background
+        let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGrad.addColorStop(0, '#3cbcfc');
+        skyGrad.addColorStop(0.5, '#8cdcfd');
+        skyGrad.addColorStop(1, '#e0f6ff');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Update & Draw Clouds (reverse loop for safe removal)
+        if (Math.random() < 0.006) clouds.push(new Cloud());
+        for (let i = clouds.length - 1; i >= 0; i--) {
+            const cloud = clouds[i];
+            cloud.update();
+            cloud.draw();
+            if (cloud.x + cloud.size * 2 < -50) {
+                clouds.splice(i, 1);
+            }
+        }
+
+        // 2. Update & Draw Parallax Hills
+        hills.forEach(hill => {
+            if (state === 'PLAYING') {
+                hill.x -= hill.speed;
+            }
+            if (hill.x + hill.width < -50) {
+                hill.x = canvas.width;
+            }
+            ctx.fillStyle = hill.color;
+            ctx.beginPath();
+            ctx.ellipse(hill.x + hill.width/2, canvas.height - 60, hill.width/2, hill.height, 0, Math.PI, 0);
+            ctx.fill();
+        });
+
+        if (state === 'PLAYING') {
+            frameCount++;
+
+            // Spawn & Update Pipes
+            if (frameCount % PIPE_SPAWN_RATE === 0) {
+                pipes.push(new Pipe());
+            }
+
+            // Reverse loop for safe pipe updates, drawing, and offscreen removal
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
+                pipe.update();
+                pipe.draw();
+
+                // Check Collisions
+                if (pipe.collide(bird)) {
+                    gameOver();
+                    break;
+                }
+
+                // Score increment
+                if (!pipe.passed && pipe.x + pipe.width < bird.x) {
+                    score++;
+                    uiScore.textContent = score;
+                    pipe.passed = true;
+                }
+
+                // Remove offscreen pipes
+                if (pipe.x + pipe.width < -10) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            // Update & Draw Bird
+            if (state === 'PLAYING') {
+                bird.update();
+                bird.draw();
+            }
+
+        } else if (state === 'START' || state === 'GAMEOVER') {
+            // Idle bird movement on screens
+            bird.skinIndex = selectedBirdIndex;
+            bird.y = (canvas.height / 2) + Math.sin(Date.now() / 200) * 10;
+            bird.wingCycle += 0.12;
+            bird.rotation = Math.sin(Date.now() / 300) * 0.06;
+            bird.draw();
+        }
+
+        // Always draw ground on top
+        drawGround();
+
+        requestAnimationFrame(loop);
+    }
+
+    // Initialize bird selectors, game state & start loop
+    initBirdPickers();
+    init();
+    loop();
+</script>
+
+</body>
+</html>
