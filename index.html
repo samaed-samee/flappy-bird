@@ -5,12 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Flappy Bird - Mobile Friendly</title>
     <link rel="stylesheet" href="style.css">
+    <!-- PeerJS for WebRTC P2P Multiplayer & Live Voice Chat -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 
     <div id="game-container">
-        <!-- Live Score -->
+        <!-- Live Single Score -->
         <div id="ui-score">0</div>
+
+        <!-- Live Multiplayer Dual Score -->
+        <div id="ui-dual-score">
+            <div class="player-score-tag">YOU: <span id="dual-score-self">0</span></div>
+            <div class="player-score-tag partner">PARTNER ❤️: <span id="dual-score-partner">0</span></div>
+        </div>
+
+        <!-- Floating Mic Button for in-game audio -->
+        <button id="floating-mic-btn" onclick="toggleMic()" title="Toggle Microphone">🎙️</button>
+        <audio id="remoteAudio" autoplay playsinline></audio>
 
         <!-- Start Screen -->
         <div id="start-screen" class="overlay">
@@ -26,15 +38,71 @@
             </div>
 
             <p class="instruction-text">Tap / Click or Press Space to Jump</p>
-            <button class="btn" onclick="startGame()">START GAME</button>
+
+            <!-- Mode Buttons Row -->
+            <div class="mode-btn-row">
+                <button class="btn mode-btn" onclick="startSoloGame()">SOLO PLAY</button>
+                <button class="btn mode-btn btn-couple" onclick="openMultiplayerModal()">COUPLE 2P ❤️</button>
+            </div>
+        </div>
+
+        <!-- Multiplayer Modal -->
+        <div id="multiplayer-modal">
+            <div class="modal-header">
+                <div class="modal-title">COUPLE MULTIPLAYER</div>
+                <button class="modal-close-btn" onclick="closeMultiplayerModal()">✕</button>
+            </div>
+
+            <div class="e2ee-badge">🔒 End-to-End Encrypted (WebRTC P2P)</div>
+
+            <!-- Voice Chat Bar -->
+            <div class="voice-chat-box">
+                <span style="font-size: 13px; font-weight: 800;">🎙️ Live Voice Mic:</span>
+                <button id="modal-mic-btn" class="mic-toggle-btn" onclick="toggleMic()">MIC: ON</button>
+            </div>
+
+            <!-- Create Room Section -->
+            <div class="mp-card" style="margin-top: 10px;">
+                <div class="mp-card-title">1. CREATE ROOM (HOST)</div>
+                <button class="btn" style="margin-top: 4px; padding: 8px 18px; font-size: 14px;" onclick="createRoom()">GENERATE 10-CHAR CODE</button>
+                <div id="create-room-info" style="display: none; margin-top: 8px;">
+                    <div class="code-display-wrap">
+                        <span id="display-room-code" class="room-code-box">----------</span>
+                        <button class="copy-btn" id="copy-code-btn" onclick="copyRoomCode()">COPY</button>
+                    </div>
+                    <div id="host-status" class="status-text">Waiting for your partner to join... ⏳</div>
+                    <button id="host-start-btn" class="btn" style="display: none; background: #10b981; box-shadow: 0 4px 0 #059669; margin-top: 8px; font-size: 16px;" onclick="startMultiplayerGame()">START TOGETHER 🚀</button>
+                </div>
+            </div>
+
+            <!-- Join Room Section -->
+            <div class="mp-card">
+                <div class="mp-card-title">2. JOIN PARTNER'S ROOM</div>
+                <div class="code-input-wrap">
+                    <input type="text" id="join-room-input" class="code-input" placeholder="10-CHAR CODE" maxlength="10">
+                    <button class="btn" style="margin-top: 0; padding: 8px 16px; font-size: 14px;" onclick="joinRoom()">JOIN</button>
+                </div>
+                <div id="join-status" class="status-text">Enter the 10-character code from your partner.</div>
+            </div>
         </div>
 
         <!-- Game Over Screen -->
         <div id="gameover-screen" class="overlay">
             <h1 style="color: #ff3333; font-size: 34px; margin-bottom: 10px;">GAME OVER</h1>
-            <div class="score-board">
+            
+            <!-- Single Player Scoreboard -->
+            <div id="single-score-board" class="score-board">
                 <div><span>SCORE:</span> <span id="final-score">0</span></div>
                 <div><span>BEST:</span> <span id="high-score">0</span></div>
+            </div>
+
+            <!-- Multiplayer Dual Scoreboard on Game Over -->
+            <div id="multi-score-board" class="score-board" style="display: none; min-width: 240px;">
+                <div><span>YOUR SCORE:</span> <span id="mp-final-self">0</span></div>
+                <div><span>PARTNER SCORE:</span> <span id="mp-final-partner">0</span></div>
+                <div style="border-top: 1px dashed #543847; margin-top: 6px; padding-top: 4px; color: #b91c1c; font-size: 15px;">
+                    <span id="mp-winner-tag">Result: Tie</span>
+                </div>
             </div>
 
             <!-- Bird Selection on Game Over -->
@@ -46,7 +114,10 @@
                 <div class="bird-cards-container" id="gameover-bird-picker"></div>
             </div>
 
-            <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+            <div class="gameover-btn-row">
+                <button class="btn" id="play-again-btn" onclick="handlePlayAgain()">PLAY AGAIN</button>
+                <button class="btn btn-home" onclick="goToHome()">🏠 MAIN MENU</button>
+            </div>
         </div>
 
         <!-- Canvas -->
@@ -140,7 +211,7 @@
         }
     ];
 
-    let selectedBirdIndex = parseInt(localStorage.getItem('floppySelectedBird'), 10) || 0;
+    let selectedBirdIndex = parseInt(localStorage.getItem('flappySelectedBird') || localStorage.getItem('floppySelectedBird'), 10) || 0;
     if (selectedBirdIndex < 0 || selectedBirdIndex >= BIRD_SKINS.length) {
         selectedBirdIndex = 0;
     }
@@ -404,7 +475,7 @@
     // Bird Selection UI Management
     function selectBird(index) {
         selectedBirdIndex = index;
-        localStorage.setItem('floppySelectedBird', selectedBirdIndex);
+        localStorage.setItem('flappySelectedBird', selectedBirdIndex);
 
         if (bird) {
             bird.skinIndex = selectedBirdIndex;
@@ -488,12 +559,11 @@
     window.addEventListener('resize', resizeCanvas);
 
     // Rebalanced Physics & Aerodynamic Constants
-    // Tuned for natural, responsive, and enjoyable gameplay
-    const GRAVITY = 0.25;         // Smooth, buoyant gravity (was 0.35)
-    const JUMP = -5.5;            // Floatier, responsive lift impulse (was -6.5)
-    const PIPE_SPEED = 2.0;       // Steady horizontal flow
-    const PIPE_SPAWN_RATE = 115;  // Comfortable, rhythmic pipe spawn interval (was 100)
-    const PIPE_GAP = 148;         // Generous clearance for smooth flight (was 135)
+    const GRAVITY = 0.25;
+    const JUMP = -5.5;
+    const PIPE_SPEED = 2.0;
+    const PIPE_SPAWN_RATE = 115;
+    const PIPE_GAP = 148;
 
     // Game Variables
     let bird;
@@ -502,7 +572,273 @@
     let hills = [];
     let frameCount = 0;
     let score = 0;
-    let highScore = localStorage.getItem('floppyHighScore') || 0;
+    let highScore = localStorage.getItem('flappyHighScore') || localStorage.getItem('floppyHighScore') || 0;
+
+    // Multiplayer & Voice State
+    let isMultiplayer = false;
+    let isHost = false;
+    let currentRoomCode = '';
+    let peer = null;
+    let conn = null;
+    let localStream = null;
+    let isMicMuted = false;
+    let partnerBirdData = null;
+    let partnerScore = 0;
+    let partnerState = 'START';
+    let partnerIsDead = false;
+    let selfIsDead = false;
+
+    // Seeded PRNG (Mulberry32) for 100% synchronized pipes between Host and Guest
+    let gameSeed = 1234567;
+    function seededRandom() {
+        gameSeed = (gameSeed + 0x6D2B79F5) | 0;
+        let t = Math.imul(gameSeed ^ (gameSeed >>> 15), 1 | gameSeed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t >>> 0) / 4294967296);
+    }
+
+    // Room code generator: 10 unambiguous uppercase alphanumeric characters
+    function generateRoomCode() {
+        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        let code = '';
+        for (let i = 0; i < 10; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+
+    function openMultiplayerModal() {
+        document.getElementById('multiplayer-modal').style.display = 'flex';
+        initMic();
+    }
+
+    function closeMultiplayerModal() {
+        document.getElementById('multiplayer-modal').style.display = 'none';
+    }
+
+    // Voice Chat Handling (WebRTC Audio with Mic Mute/Unmute)
+    async function initMic() {
+        if (localStream) return;
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            isMicMuted = false;
+            updateMicUI();
+        } catch (err) {
+            console.warn('Microphone permission not granted:', err);
+            isMicMuted = true;
+            updateMicUI();
+        }
+    }
+
+    function toggleMic() {
+        if (!localStream) {
+            initMic();
+            return;
+        }
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = !isMicMuted;
+        });
+        updateMicUI();
+    }
+
+    function updateMicUI() {
+        const modalMicBtn = document.getElementById('modal-mic-btn');
+        const floatingMicBtn = document.getElementById('floating-mic-btn');
+
+        if (isMicMuted) {
+            if (modalMicBtn) {
+                modalMicBtn.textContent = '🔇 MIC: MUTED';
+                modalMicBtn.classList.add('muted');
+            }
+            if (floatingMicBtn) {
+                floatingMicBtn.textContent = '🔇';
+                floatingMicBtn.classList.add('muted');
+            }
+        } else {
+            if (modalMicBtn) {
+                modalMicBtn.textContent = '🎙️ MIC: ON';
+                modalMicBtn.classList.remove('muted');
+            }
+            if (floatingMicBtn) {
+                floatingMicBtn.textContent = '🎙️';
+                floatingMicBtn.classList.remove('muted');
+            }
+        }
+    }
+
+    function handleCall(call) {
+        call.on('stream', remoteStream => {
+            const audio = document.getElementById('remoteAudio');
+            if (audio) {
+                audio.srcObject = remoteStream;
+                audio.play().catch(e => console.log('Audio autoplay info:', e));
+            }
+        });
+    }
+
+    // Create Room (Host)
+    function createRoom() {
+        currentRoomCode = generateRoomCode();
+        document.getElementById('display-room-code').textContent = currentRoomCode;
+        document.getElementById('create-room-info').style.display = 'block';
+        document.getElementById('host-status').textContent = 'Waiting for your partner to join... ⏳';
+        document.getElementById('host-status').className = 'status-text';
+
+        if (peer) peer.destroy();
+
+        peer = new Peer('flappy-pair-' + currentRoomCode);
+
+        peer.on('connection', c => {
+            conn = c;
+            isMultiplayer = true;
+            isHost = true;
+            setupConnectionListeners();
+
+            document.getElementById('host-status').textContent = 'Partner connected! ❤️ Click start to fly!';
+            document.getElementById('host-status').className = 'status-text connected';
+            document.getElementById('host-start-btn').style.display = 'inline-block';
+        });
+
+        peer.on('call', call => {
+            call.answer(localStream);
+            handleCall(call);
+        });
+
+        peer.on('error', err => {
+            console.error('Peer error:', err);
+            document.getElementById('host-status').textContent = 'Error: ' + (err.type || 'Connection failed');
+            document.getElementById('host-status').className = 'status-text error';
+        });
+    }
+
+    function copyRoomCode() {
+        if (!currentRoomCode) return;
+        navigator.clipboard.writeText(currentRoomCode).then(() => {
+            const btn = document.getElementById('copy-code-btn');
+            btn.textContent = 'COPIED!';
+            setTimeout(() => { btn.textContent = 'COPY'; }, 1800);
+        });
+    }
+
+    // Join Room (Guest)
+    function joinRoom() {
+        const input = document.getElementById('join-room-input');
+        const code = input.value.trim().toUpperCase();
+        const status = document.getElementById('join-status');
+
+        if (code.length !== 10) {
+            status.textContent = 'Please enter a valid 10-character code!';
+            status.className = 'status-text error';
+            return;
+        }
+
+        currentRoomCode = code;
+        status.textContent = 'Connecting to partner... ⏳';
+        status.className = 'status-text';
+
+        if (peer) peer.destroy();
+
+        peer = new Peer();
+
+        peer.on('open', () => {
+            conn = peer.connect('flappy-pair-' + currentRoomCode);
+            isMultiplayer = true;
+            isHost = false;
+            setupConnectionListeners();
+
+            conn.on('open', () => {
+                status.textContent = 'Connected! Waiting for host to launch... ❤️';
+                status.className = 'status-text connected';
+
+                if (localStream) {
+                    const call = peer.call('flappy-pair-' + currentRoomCode, localStream);
+                    handleCall(call);
+                }
+            });
+        });
+
+        peer.on('call', call => {
+            call.answer(localStream);
+            handleCall(call);
+        });
+
+        peer.on('error', err => {
+            console.error('Join error:', err);
+            status.textContent = 'Could not find room with this code!';
+            status.className = 'status-text error';
+        });
+    }
+
+    function setupConnectionListeners() {
+        conn.on('data', data => {
+            handleIncomingData(data);
+        });
+
+        conn.on('close', () => {
+            partnerBirdData = null;
+        });
+    }
+
+    function handleIncomingData(data) {
+        if (!data) return;
+
+        if (data.type === 'START_GAME') {
+            closeMultiplayerModal();
+            startActualGame(data.seed);
+        } else if (data.type === 'PLAY_AGAIN') {
+            startActualGame(data.seed);
+        } else if (data.type === 'BIRD_STATE') {
+            partnerBirdData = data;
+            partnerScore = data.score;
+            partnerIsDead = data.isDead;
+
+            const partnerScoreEl = document.getElementById('dual-score-partner');
+            if (partnerScoreEl) {
+                partnerScoreEl.textContent = partnerIsDead ? (partnerScore + ' 💀') : partnerScore;
+            }
+
+            // If I am already dead and partner just died, show Game Over screen now!
+            if (isMultiplayer && selfIsDead && partnerIsDead && state !== 'GAMEOVER') {
+                showGameOverScreen();
+            }
+        } else if (data.type === 'PARTNER_LEFT') {
+            partnerBirdData = null;
+            partnerIsDead = true;
+            const partnerScoreEl = document.getElementById('dual-score-partner');
+            if (partnerScoreEl) partnerScoreEl.textContent = 'Left';
+            if (selfIsDead && state !== 'GAMEOVER') {
+                showGameOverScreen();
+            }
+        }
+    }
+
+    function startSoloGame() {
+        isMultiplayer = false;
+        closeMultiplayerModal();
+        startActualGame();
+    }
+
+    function startMultiplayerGame() {
+        const seed = Math.floor(Math.random() * 9000000) + 1000000;
+        if (conn && conn.open) {
+            conn.send({ type: 'START_GAME', seed: seed });
+        }
+        closeMultiplayerModal();
+        startActualGame(seed);
+    }
+
+    function handlePlayAgain() {
+        if (isMultiplayer) {
+            const newSeed = Math.floor(Math.random() * 9000000) + 1000000;
+            if (conn && conn.open) {
+                conn.send({ type: 'PLAY_AGAIN', seed: newSeed });
+            }
+            startActualGame(newSeed);
+        } else {
+            startActualGame();
+        }
+    }
 
     // Realistic Bird Flight Definition
     class Bird {
@@ -510,8 +846,8 @@
             this.x = canvas.width * 0.25;
             this.y = canvas.height / 2;
             this.vy = 0;
-            this.radius = 16;       // Visual rendering radius
-            this.hitRadius = 11;    // Forgiving inner collision hitbox (70% of radius)
+            this.radius = 16;
+            this.hitRadius = 11;
             this.rotation = 0;
             this.targetRotation = 0;
             this.wingCycle = 0;
@@ -521,35 +857,25 @@
         }
 
         update() {
-            // Apply gentle gravity with aerodynamic damping
             this.vy += GRAVITY;
             this.y += this.vy;
 
-            // Terminal falling velocity
             if (this.vy > 7.0) this.vy = 7.0;
 
-            // Realistic inertia-based rotation
-            // When rising or just flapped: tilt up (-24 deg / -0.42 rad)
-            // When falling: gradually rotate into nose-down dive (up to 70 deg / 1.22 rad)
             if (this.vy < 0) {
                 this.targetRotation = -0.42;
             } else if (this.vy > 1.2) {
                 this.targetRotation = Math.min(1.22, -0.42 + (this.vy - 1.2) * 0.28);
             }
-            // Smooth rotation interpolation
             this.rotation += (this.targetRotation - this.rotation) * 0.12;
-
-            // Dynamic wing flapping cycle based on flight state
             this.wingCycle += (this.vy < 0) ? 0.32 : 0.08;
 
-            // Return squash and stretch back to neutral smoothly
             this.scaleX += (1.0 - this.scaleX) * 0.1;
             this.scaleY += (1.0 - this.scaleY) * 0.1;
 
-            // Ground & Ceiling collision using hitRadius
             if (this.y + this.hitRadius >= canvas.height - 60) {
                 this.y = canvas.height - 60 - this.hitRadius;
-                gameOver();
+                onPlayerDeath();
             }
             if (this.y - this.hitRadius < 0) {
                 this.y = this.hitRadius;
@@ -560,8 +886,6 @@
         jump() {
             this.vy = JUMP;
             this.targetRotation = -0.42;
-            
-            // Aerodynamic squash & stretch on flap
             this.scaleX = 1.08;
             this.scaleY = 0.92;
         }
@@ -572,15 +896,66 @@
         }
     }
 
+    // Draw Partner Bird in Multiplayer Mode
+    function drawPartnerBird() {
+        if (!isMultiplayer || !partnerBirdData) return;
+
+        const skin = BIRD_SKINS[partnerBirdData.skinIndex] || BIRD_SKINS[0];
+        
+        ctx.save();
+        if (partnerIsDead) {
+            ctx.globalAlpha = 0.45;
+        } else {
+            ctx.globalAlpha = 0.88;
+        }
+
+        drawBirdArt(
+            ctx,
+            partnerBirdData.x || (canvas.width * 0.25),
+            partnerBirdData.y,
+            16,
+            partnerBirdData.rotation || 0,
+            partnerBirdData.wingCycle || 0,
+            skin,
+            partnerBirdData.scaleX || 1,
+            partnerBirdData.scaleY || 1
+        );
+        ctx.restore();
+
+        // Draw floating partner name badge above partner bird
+        ctx.save();
+        const px = partnerBirdData.x || (canvas.width * 0.25);
+        const py = partnerBirdData.y - 25;
+
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.85)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(px - 28, py - 9, 56, 15, 6);
+        } else {
+            ctx.rect(px - 28, py - 9, 56, 15);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(partnerIsDead ? 'RIP 💀' : 'Partner ❤️', px, py);
+        ctx.restore();
+    }
+
     // Pipe Object Definition with Forgiving Hitbox Detection
     class Pipe {
         constructor() {
             this.x = canvas.width;
             this.width = 60;
-            // Ensure gap is in playable range
             const minHeight = 60;
             const maxHeight = canvas.height - 60 - PIPE_GAP - minHeight;
-            this.topHeight = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
+            const rand = isMultiplayer ? seededRandom() : Math.random();
+            this.topHeight = Math.floor(rand * (maxHeight - minHeight)) + minHeight;
             this.bottomY = this.topHeight + PIPE_GAP;
             this.passed = false;
         }
@@ -606,23 +981,19 @@
         }
 
         drawSinglePipe(x, y, width, height, isTop) {
-            // Horizontal gradient for pipe body
             let grad = ctx.createLinearGradient(x, 0, x + width, 0);
             grad.addColorStop(0, '#9de650');
             grad.addColorStop(0.15, '#73c73a');
             grad.addColorStop(0.7, '#5ca82b');
             grad.addColorStop(1.0, '#3b6e1a');
 
-            // Draw main body
             ctx.fillStyle = grad;
             ctx.fillRect(x, y, width, height);
             ctx.strokeRect(x, isTop ? -5 : y, width, isTop ? height + 5 : height + 5);
 
-            // Draw vertical highlight line
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.fillRect(x + 5, y, 4, height);
 
-            // Draw Pipe Lip
             const lipHeight = 24;
             const lipY = isTop ? y + height - lipHeight : y;
             const lipX = x - 4;
@@ -638,13 +1009,11 @@
             ctx.fillRect(lipX, lipY, lipWidth, lipHeight);
             ctx.strokeRect(lipX, lipY, lipWidth, lipHeight);
 
-            // Lip highlight line
             ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
             ctx.fillRect(lipX + 7, lipY + 2, 4, lipHeight - 4);
         }
 
         collide(bird) {
-            // Forgiving Hitbox: uses bird.hitRadius (11px) instead of full 16px visual circle
             const hr = bird.hitRadius;
             if (bird.x + hr > this.x && bird.x - hr < this.x + this.width) {
                 if (bird.y - hr < this.topHeight || bird.y + hr > this.bottomY) {
@@ -695,14 +1064,12 @@
         score = 0;
         uiScore.textContent = score;
 
-        // Spawn starting clouds
         for (let i = 0; i < 4; i++) {
             let c = new Cloud();
             c.x = Math.random() * canvas.width;
             clouds.push(c);
         }
 
-        // Spawn background hills for parallax depth
         hills = [
             { x: 0, width: 220, height: 70, speed: 0.15, color: '#addc9e' },
             { x: 140, width: 280, height: 100, speed: 0.15, color: '#99d288' },
@@ -712,33 +1079,139 @@
         ];
     }
 
-    function startGame() {
+    function startActualGame(seed) {
         init();
         state = 'PLAYING';
+        selfIsDead = false;
+        partnerIsDead = false;
         startScreen.style.display = 'none';
         gameoverScreen.style.display = 'none';
-        uiScore.style.display = 'block';
+
+        if (isMultiplayer) {
+            gameSeed = seed || 1234567;
+            uiScore.style.display = 'none';
+            document.getElementById('ui-dual-score').style.display = 'flex';
+            document.getElementById('floating-mic-btn').style.display = 'flex';
+            document.getElementById('dual-score-self').textContent = '0';
+            document.getElementById('dual-score-partner').textContent = '0';
+            partnerScore = 0;
+        } else {
+            uiScore.style.display = 'block';
+            document.getElementById('ui-dual-score').style.display = 'none';
+            document.getElementById('floating-mic-btn').style.display = 'none';
+        }
     }
 
-    function gameOver() {
+    function onPlayerDeath() {
+        selfIsDead = true;
+
+        if (isMultiplayer && conn && conn.open) {
+            conn.send({
+                type: 'BIRD_STATE',
+                x: bird.x,
+                y: canvas.height - 60 - bird.hitRadius,
+                vy: 0,
+                rotation: Math.PI * 0.35,
+                wingCycle: 0,
+                scaleX: 1,
+                scaleY: 1,
+                score: score,
+                skinIndex: selectedBirdIndex,
+                isDead: true,
+                state: 'DEAD'
+            });
+        }
+
+        if (isMultiplayer) {
+            const dualSelf = document.getElementById('dual-score-self');
+            if (dualSelf) dualSelf.textContent = score + ' 💀';
+
+            if (partnerIsDead) {
+                showGameOverScreen();
+            } else {
+                state = 'SPECTATING';
+            }
+        } else {
+            showGameOverScreen();
+        }
+    }
+
+    function showGameOverScreen() {
         state = 'GAMEOVER';
         gameOverTime = Date.now();
         uiScore.style.display = 'none';
         if (score > highScore) {
             highScore = score;
-            localStorage.setItem('floppyHighScore', highScore);
+            localStorage.setItem('flappyHighScore', highScore);
         }
-        document.getElementById('final-score').textContent = score;
-        document.getElementById('high-score').textContent = highScore;
+
+        const singleBoard = document.getElementById('single-score-board');
+        const multiBoard = document.getElementById('multi-score-board');
+
+        if (isMultiplayer) {
+            singleBoard.style.display = 'none';
+            multiBoard.style.display = 'block';
+            document.getElementById('mp-final-self').textContent = score;
+            document.getElementById('mp-final-partner').textContent = partnerScore;
+
+            const winnerTag = document.getElementById('mp-winner-tag');
+            if (score > partnerScore) {
+                winnerTag.textContent = '🏆 You Won this round!';
+                winnerTag.style.color = '#10b981';
+            } else if (score < partnerScore) {
+                winnerTag.textContent = '💖 Partner Won this round!';
+                winnerTag.style.color = '#ec4899';
+            } else {
+                winnerTag.textContent = '🤝 It\'s a Tie!';
+                winnerTag.style.color = '#f59e0b';
+            }
+        } else {
+            singleBoard.style.display = 'block';
+            multiBoard.style.display = 'none';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('high-score').textContent = highScore;
+        }
+
         gameoverScreen.style.display = 'flex';
+    }
+
+    function goToHome() {
+        state = 'START';
+        gameoverScreen.style.display = 'none';
+        const mpModal = document.getElementById('multiplayer-modal');
+        if (mpModal) mpModal.style.display = 'none';
+
+        uiScore.style.display = 'none';
+        document.getElementById('ui-dual-score').style.display = 'none';
+        document.getElementById('floating-mic-btn').style.display = 'none';
+
+        if (isMultiplayer) {
+            if (conn && conn.open) {
+                conn.send({ type: 'PARTNER_LEFT' });
+                conn.close();
+            }
+            if (peer) peer.destroy();
+            isMultiplayer = false;
+            isHost = false;
+            partnerBirdData = null;
+        }
+
+        startScreen.style.display = 'flex';
+        init();
+    }
+
+    function gameOver() {
+        onPlayerDeath();
     }
 
     // Controller Input Handler
     function handleAction(e) {
-        if (e.target && e.target.closest && e.target.closest('.bird-selector-section')) {
-            return;
-        }
-        if (e.target && e.target.closest && e.target.closest('.btn')) {
+        if (e.target && e.target.closest && (
+            e.target.closest('.bird-selector-section') ||
+            e.target.closest('#multiplayer-modal') ||
+            e.target.closest('#floating-mic-btn') ||
+            e.target.closest('.btn')
+        )) {
             return;
         }
         if (e.cancelable) e.preventDefault();
@@ -746,10 +1219,12 @@
         if (state === 'PLAYING') {
             bird.jump();
         } else if (state === 'START') {
-            startGame();
+            if (!isMultiplayer) {
+                startSoloGame();
+            }
         } else if (state === 'GAMEOVER') {
             if (Date.now() - gameOverTime > 350) {
-                startGame();
+                handlePlayAgain();
             }
         }
     }
@@ -759,10 +1234,12 @@
             if (state === 'PLAYING') {
                 bird.jump();
             } else if (state === 'START') {
-                startGame();
+                if (!isMultiplayer) {
+                    startSoloGame();
+                }
             } else if (state === 'GAMEOVER') {
                 if (Date.now() - gameOverTime > 350) {
-                    startGame();
+                    handlePlayAgain();
                 }
             }
         }
@@ -781,11 +1258,9 @@
 
         const groundY = canvas.height - 60;
         
-        // 1. Dirt Base
         ctx.fillStyle = '#ded798';
         ctx.fillRect(0, groundY, canvas.width, 60);
 
-        // Diagonal stripes on dirt
         ctx.strokeStyle = '#d2c880';
         ctx.lineWidth = 4;
         ctx.save();
@@ -797,7 +1272,6 @@
         ctx.stroke();
         ctx.restore();
 
-        // Ground top border line
         ctx.strokeStyle = '#543847';
         ctx.lineWidth = 4;
         ctx.beginPath();
@@ -805,11 +1279,9 @@
         ctx.lineTo(canvas.width, groundY);
         ctx.stroke();
 
-        // 2. Grass Top Strip
         ctx.fillStyle = '#54b030';
         ctx.fillRect(0, groundY, canvas.width, 12);
 
-        // Grass texture triangles
         ctx.fillStyle = '#3e8a20';
         ctx.beginPath();
         for (let x = groundOffset - 24; x < canvas.width + 24; x += 12) {
@@ -819,7 +1291,6 @@
         }
         ctx.fill();
 
-        // Grass bottom border line
         ctx.strokeStyle = '#543847';
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -830,7 +1301,6 @@
 
     // Main Game Loop
     function loop() {
-        // Clear Sky Background
         let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
         skyGrad.addColorStop(0, '#3cbcfc');
         skyGrad.addColorStop(0.5, '#8cdcfd');
@@ -838,7 +1308,7 @@
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Update & Draw Clouds (reverse loop for safe removal)
+        // 1. Update & Draw Clouds
         if (Math.random() < 0.006) clouds.push(new Cloud());
         for (let i = clouds.length - 1; i >= 0; i--) {
             const cloud = clouds[i];
@@ -863,10 +1333,10 @@
             ctx.fill();
         });
 
-        if (state === 'PLAYING') {
+        if (state === 'PLAYING' || state === 'SPECTATING') {
             frameCount++;
 
-            // Spawn & Update Pipes
+            // Spawn Pipes: in Solo mode or Multiplayer (both Host and Joiner spawn identical pipes using Seeded PRNG)
             if (frameCount % PIPE_SPAWN_RATE === 0) {
                 pipes.push(new Pipe());
             }
@@ -877,16 +1347,17 @@
                 pipe.update();
                 pipe.draw();
 
-                // Check Collisions
-                if (pipe.collide(bird)) {
-                    gameOver();
-                    break;
+                // Check Collisions only if alive
+                if (state === 'PLAYING' && pipe.collide(bird)) {
+                    onPlayerDeath();
                 }
 
-                // Score increment
-                if (!pipe.passed && pipe.x + pipe.width < bird.x) {
+                // Score increment only if alive
+                if (state === 'PLAYING' && !pipe.passed && pipe.x + pipe.width < bird.x) {
                     score++;
                     uiScore.textContent = score;
+                    const dualSelf = document.getElementById('dual-score-self');
+                    if (dualSelf) dualSelf.textContent = score;
                     pipe.passed = true;
                 }
 
@@ -900,18 +1371,64 @@
             if (state === 'PLAYING') {
                 bird.update();
                 bird.draw();
+            } else if (state === 'SPECTATING') {
+                bird.y = canvas.height - 60 - bird.hitRadius;
+                bird.rotation = Math.PI * 0.35;
+                bird.draw();
+            }
+
+            // Draw Partner Bird in Multiplayer
+            if (isMultiplayer) {
+                drawPartnerBird();
+            }
+
+            // Broadcast local bird state to partner
+            if (isMultiplayer && conn && conn.open) {
+                conn.send({
+                    type: 'BIRD_STATE',
+                    x: bird.x,
+                    y: bird.y,
+                    vy: bird.vy,
+                    rotation: bird.rotation,
+                    wingCycle: bird.wingCycle,
+                    scaleX: bird.scaleX,
+                    scaleY: bird.scaleY,
+                    score: score,
+                    skinIndex: selectedBirdIndex,
+                    isDead: state === 'SPECTATING' || state === 'GAMEOVER',
+                    state: state
+                });
             }
 
         } else if (state === 'START' || state === 'GAMEOVER') {
-            // Idle bird movement on screens
             bird.skinIndex = selectedBirdIndex;
             bird.y = (canvas.height / 2) + Math.sin(Date.now() / 200) * 10;
             bird.wingCycle += 0.12;
             bird.rotation = Math.sin(Date.now() / 300) * 0.06;
             bird.draw();
+
+            if (isMultiplayer && partnerBirdData) {
+                drawPartnerBird();
+            }
+
+            if (isMultiplayer && conn && conn.open && state === 'GAMEOVER') {
+                conn.send({
+                    type: 'BIRD_STATE',
+                    x: bird.x,
+                    y: bird.y,
+                    vy: bird.vy,
+                    rotation: bird.rotation,
+                    wingCycle: bird.wingCycle,
+                    scaleX: bird.scaleX,
+                    scaleY: bird.scaleY,
+                    score: score,
+                    skinIndex: selectedBirdIndex,
+                    isDead: true,
+                    state: state
+                });
+            }
         }
 
-        // Always draw ground on top
         drawGround();
 
         requestAnimationFrame(loop);
