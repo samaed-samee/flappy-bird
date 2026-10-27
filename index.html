@@ -14,14 +14,13 @@
         <!-- Live Single Score -->
         <div id="ui-score">0</div>
 
-        <!-- Live Multiplayer Dual Score -->
+        <!-- Live Multiplayer Dual Score & In-game Voice Control -->
         <div id="ui-dual-score">
             <div class="player-score-tag">YOU: <span id="dual-score-self">0</span></div>
+            <button id="floating-mic-btn" onclick="toggleMic()" title="Toggle Microphone">🎙️</button>
             <div class="player-score-tag partner">PARTNER ❤️: <span id="dual-score-partner">0</span></div>
         </div>
 
-        <!-- Floating Mic Button for in-game audio -->
-        <button id="floating-mic-btn" onclick="toggleMic()" title="Toggle Microphone">🎙️</button>
         <audio id="remoteAudio" autoplay playsinline></audio>
 
         <!-- Start Screen -->
@@ -1140,6 +1139,8 @@
         state = 'GAMEOVER';
         gameOverTime = Date.now();
         uiScore.style.display = 'none';
+        document.getElementById('ui-dual-score').style.display = 'none';
+        document.getElementById('floating-mic-btn').style.display = 'none';
         if (score > highScore) {
             highScore = score;
             localStorage.setItem('flappyHighScore', highScore);
